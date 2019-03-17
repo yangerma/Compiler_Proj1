@@ -13,6 +13,8 @@
 	   Operation : Specify all arithematic expression, including +, - , *, / and type coercion.
 *******************************************************************************************************************************************/
 
+int ungotten;
+
 typedef enum TokenType { FloatDeclaration, IntegerDeclaration, PrintOp, AssignmentOp, PlusOp, MinusOp,
              MulOp, DivOp, Alphabet, IntValue, FloatValue, EOFsymbol } TokenType;
 typedef enum DataType { Int, Float, Notype }DataType;
@@ -113,6 +115,7 @@ typedef struct SymbolTable{
 
 
 Token getNumericToken( FILE *source, char c );
+Token getNumericToken( FILE *source, char c );
 Token scanner( FILE *source );
 Declaration makeDeclarationNode( Token declare_type, Token identifier );
 Declarations *makeDeclarationTree( Declaration decl, Declarations *decls );
@@ -142,5 +145,6 @@ void gencode( Program prog, FILE * target );
 
 void print_expr( Expression *expr );
 void test_parser( FILE *source );
+char getVarName(char target[]);
 
 #endif // HEADER_H_INCLUDED

@@ -7,6 +7,7 @@
 
 int main( int argc, char *argv[] )
 {
+	ungotten = 0;
     FILE *source, *target;
     Program program;
     SymbolTable symtab;
@@ -26,6 +27,10 @@ int main( int argc, char *argv[] )
             program = parser(source);
             fclose(source);
             symtab = build(program);
+			/*
+			for(int i=0; i<26; i++)
+				printf("%c: %d\n", i+'a', symtab.table[i]);
+			*/
             check(&program, &symtab);
             gencode(program, target);
         }
@@ -53,7 +58,7 @@ Token getNumericToken( FILE *source, char c )
     }
 
     if( c != '.' ){
-        ungetc(c, source);
+        //ungetc(c, source);
         token.tok[i] = '\0';
         token.type = IntValue;
         return token;
@@ -63,7 +68,7 @@ Token getNumericToken( FILE *source, char c )
 
     c = fgetc(source);
     if( !isdigit(c) ){
-        ungetc(c, source);
+        //ungetc(c, source);
         printf("Expect a digit : %c\n", c);
         exit(1);
     }
@@ -73,16 +78,43 @@ Token getNumericToken( FILE *source, char c )
         c = fgetc(source);
     }
 
-    ungetc(c, source);
+    //ungetc(c, source);
     token.tok[i] = '\0';
     token.type = FloatValue;
     return token;
 }
 
+Token getAlphaToken( FILE *source, char c) {
+	Token token;
+	int i=0;
+	while( isalpha(c) ) {
+		token.tok[i++] = c;
+		c = fgetc(source);
+	}
+	token.tok[i] = '\0';
+	if( strcmp(token.tok, "f") == 0 )
+		token.type = FloatDeclaration;
+	else if( strcmp(token.tok, "i") == 0 )
+		token.type = IntegerDeclaration;
+	else if( strcmp(token.tok, "p") == 0 )
+		token.type = PrintOp;
+	else {
+		token.tok[0] = getVarName(token.tok);
+		token.tok[1] = '\0';
+		token.type = Alphabet;
+	}
+	return token;
+}
+
 Token scanner( FILE *source )
 {
     char c;
-    Token token;
+    static Token token = {EOFsymbol, ""};
+
+	if(ungotten) {
+		ungotten = 0;
+		return token;
+	}
 
     while( !feof(source) ){
         c = fgetc(source);
@@ -90,22 +122,12 @@ Token scanner( FILE *source )
         while( isspace(c) ) c = fgetc(source);
 
         if( isdigit(c) )
-            return getNumericToken(source, c);
+            return token = getNumericToken(source, c);
+		if( isalpha(c) )
+			return token = getAlphaToken(source, c);
 
         token.tok[0] = c;
         token.tok[1] = '\0';
-        if( islower(c) ){
-            if( c == 'f' )
-                token.type = FloatDeclaration;
-            else if( c == 'i' )
-                token.type = IntegerDeclaration;
-            else if( c == 'p' )
-                token.type = PrintOp;
-            else
-                token.type = Alphabet;
-            return token;
-        }
-
         switch(c){
             case '=':
                 token.type = AssignmentOp;
@@ -174,7 +196,9 @@ Declarations *parseDeclarations( FILE *source )
             return makeDeclarationTree( decl, decls );
         case PrintOp:
         case Alphabet:
-            ungetc(token.tok[0], source);
+			// TODO
+			ungotten = 1;
+            //ungetc(token.tok[0], source);
             return NULL;
         case EOFsymbol:
             return NULL;
@@ -233,7 +257,8 @@ Expression *parseExpressionTail( FILE *source, Expression *lvalue )
             return parseExpressionTail(source, expr);
         case Alphabet:
         case PrintOp:
-            ungetc(token.tok[0], source);
+			ungotten = 1;
+            //ungetc(token.tok[0], source);
             return lvalue;
         case EOFsymbol:
             return lvalue;
@@ -265,7 +290,8 @@ Expression *parseExpression( FILE *source, Expression *lvalue )
             return parseExpressionTail(source, expr);
         case Alphabet:
         case PrintOp:
-            ungetc(token.tok[0], source);
+			ungotten = 1;
+            //ungetc(token.tok[0], source);
             return NULL;
         case EOFsymbol:
             return NULL;
@@ -622,6 +648,7 @@ void gencode(Program prog, FILE * target)
             case Print:
                 fprintf(target,"l%c\n",stmt.stmt.variable);
                 fprintf(target,"p\n");
+                fprintf(target,"s%c\n",stmt.stmt.variable);
                 break;
             case Assignment:
                 fprint_expr(target, stmt.stmt.assign.expr);
@@ -720,4 +747,23 @@ void test_parser( FILE *source )
         stmts = stmts->rest;
     }
 
+}
+
+char getVarName(char target[]) {
+	static char table[26][257] = {{}};
+	static int cur=0;
+	//printf("** %d\n", cur);
+	for(int i=0; i<cur; i++) {
+		if(i==5 || i==8 || i==15)
+			continue;
+		if(strcmp(table[i], target) == 0)
+			return i+'a';
+	}
+	if(cur==5 || cur==8 || cur==15)
+		cur++;
+	strcpy(table[cur], target);
+	char ret = cur+'a';
+	cur++;
+	//printf("|| %d\n", cur);
+	return ret;
 }
