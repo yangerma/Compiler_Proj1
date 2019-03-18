@@ -310,7 +310,7 @@ Expression *parseTerm( FILE *source, Expression *lvalue) {
 			(term->v).val.op = Mul;
 			term->leftOperand = lvalue;
 			term->rightOperand = parseValue(source);
-			//term = ConstFolding(term);
+			term = ConstFolding(term);
 			return parseTerm(source, term);
 		case DivOp:
 			term = (Expression *)malloc( sizeof(Expression) );
@@ -318,7 +318,7 @@ Expression *parseTerm( FILE *source, Expression *lvalue) {
 			(term->v).val.op = Div;
 			term->leftOperand = lvalue;
 			term->rightOperand = parseValue(source);
-			//term = ConstFolding(term);
+			term = ConstFolding(term);
 			return parseTerm(source, term);
 		case PlusOp:
 		case MinusOp:
@@ -349,7 +349,7 @@ Expression *parseExpression( FILE *source, Expression *lvalue )
             (expr->v).val.op = Plus;
             expr->leftOperand = lvalue;
             expr->rightOperand = parseTerm(source, NULL);
-			//expr = ConstFolding(expr);
+			expr = ConstFolding(expr);
             return parseExpression(source, expr);
         case MinusOp:
             expr = (Expression *)malloc( sizeof(Expression) );
@@ -357,7 +357,7 @@ Expression *parseExpression( FILE *source, Expression *lvalue )
             (expr->v).val.op = Minus;
             expr->leftOperand = lvalue;
             expr->rightOperand = parseTerm(source, NULL);
-			//expr = ConstFolding(expr);
+			expr = ConstFolding(expr);
             return parseExpression(source, expr);
         case Alphabet:
         case PrintOp:
@@ -685,9 +685,17 @@ void fprint_expr(FILE *target, Expression *expr) {
                 fprintf(target,"l%c\n",(expr->v).val.id);
                 break;
             case IntConst:
+				if((expr->v).val.ivalue < 0) {
+					fputc('_', target);
+					(expr->v).val.ivalue *= (-1);
+				}
                 fprintf(target,"%d\n",(expr->v).val.ivalue);
                 break;
             case FloatConst:
+				if((expr->v).val.fvalue < 0) {
+					fputc('_', target);
+					(expr->v).val.fvalue *= (-1);
+				}
                 fprintf(target,"%f\n", (expr->v).val.fvalue);
                 break;
             default:
@@ -698,11 +706,12 @@ void fprint_expr(FILE *target, Expression *expr) {
     else{
         fprint_expr(target, expr->leftOperand);
         if(expr->rightOperand == NULL){
-            fprintf(target,"5k\n");
-        }
-        else{
+            fprintf(target,"5 k\n");
+        } else{
             //	fprint_right_expr(expr->rightOperand);
             fprint_expr(target, expr->rightOperand);
+			if(expr->leftOperand->type == Float || expr->leftOperand->type == Float)
+				fprintf(target, "5 k\n");
             fprint_op(target, (expr->v).type);
         }
     }
@@ -735,87 +744,6 @@ void gencode(Program prog, FILE * target)
                 break;
         }
         stmts=stmts->rest;
-    }
-
-}
-
-
-/***************************************
-  For our debug,
-  you can omit them.
- ****************************************/
-void print_expr(Expression *expr)
-{
-    if(expr == NULL)
-        return;
-    else{
-        print_expr(expr->leftOperand);
-        switch((expr->v).type){
-            case Identifier:
-                printf("%c ", (expr->v).val.id);
-                break;
-            case IntConst:
-                printf("%d ", (expr->v).val.ivalue);
-                break;
-            case FloatConst:
-                printf("%f ", (expr->v).val.fvalue);
-                break;
-            case PlusNode:
-                printf("+ ");
-                break;
-            case MinusNode:
-                printf("- ");
-                break;
-            case MulNode:
-                printf("* ");
-                break;
-            case DivNode:
-                printf("/ ");
-                break;
-            case IntToFloatConvertNode:
-                printf("(float) ");
-                break;
-            default:
-                printf("error ");
-                break;
-        }
-        print_expr(expr->rightOperand);
-    }
-}
-
-void test_parser( FILE *source )
-{
-    Declarations *decls;
-    Statements *stmts;
-    Declaration decl;
-    Statement stmt;
-    Program program = parser(source);
-
-    decls = program.declarations;
-
-    while(decls != NULL){
-        decl = decls->first;
-        if(decl.type == Int)
-            printf("i ");
-        if(decl.type == Float)
-            printf("f ");
-        printf("%c ",decl.name);
-        decls = decls->rest;
-    }
-
-    stmts = program.statements;
-
-    while(stmts != NULL){
-        stmt = stmts->first;
-        if(stmt.type == Print){
-            printf("p %c ", stmt.stmt.variable);
-        }
-
-        if(stmt.type == Assignment){
-            printf("%c = ", stmt.stmt.assign.id);
-            print_expr(stmt.stmt.assign.expr);
-        }
-        stmts = stmts->rest;
     }
 
 }
