@@ -235,6 +235,66 @@ Expression *parseValue( FILE *source )
     return value;
 }
 
+Expression *ConstFolding( Expression *expr ) {
+	if(expr->leftOperand == NULL || expr->rightOperand == NULL)
+		return expr;
+	ValueType ltype = (expr->leftOperand->v).type;
+	ValueType rtype = (expr->rightOperand->v).type;
+	if((ltype == IntConst || ltype == FloatConst)
+		&& (rtype == IntConst || rtype == FloatConst)) {
+		if(ltype == IntConst && rtype == IntConst) {
+			int res;
+			(expr->leftOperand->v).type = IntConst;
+			switch((expr->v).val.op) {
+
+				case Plus:
+					res = (expr->leftOperand->v).val.ivalue + (expr->rightOperand->v).val.ivalue;
+					break;
+				case Minus:
+					res = (expr->leftOperand->v).val.ivalue - (expr->rightOperand->v).val.ivalue;
+					break;
+				case Mul:
+					res = (expr->leftOperand->v).val.ivalue * (expr->rightOperand->v).val.ivalue;
+					break;
+				case Div:
+					res = (expr->leftOperand->v).val.ivalue / (expr->rightOperand->v).val.ivalue;
+					break;
+				default:
+					printf("Constant Folding Error.\n");
+					exit(1);
+			}
+			(expr->leftOperand->v).val.ivalue = res;
+		} else {
+			float res;
+			if(ltype == IntConst)
+				(expr->leftOperand->v).val.fvalue = (expr->leftOperand->v).val.ivalue;
+			if(rtype == IntConst)
+				(expr->rightOperand->v).val.fvalue = (expr->rightOperand->v).val.ivalue;
+			(expr->leftOperand->v).type = FloatConst;
+			switch((expr->v).val.op) {
+				case Plus:
+					res = (expr->leftOperand->v).val.fvalue + (expr->rightOperand->v).val.fvalue;
+					break;
+				case Minus:
+					res = (expr->leftOperand->v).val.fvalue - (expr->rightOperand->v).val.fvalue;
+					break;
+				case Mul:
+					res = (expr->leftOperand->v).val.fvalue * (expr->rightOperand->v).val.fvalue;
+					break;
+				case Div:
+					res = (expr->leftOperand->v).val.fvalue / (expr->rightOperand->v).val.fvalue;
+					break;
+				default:
+					printf("Constant Folding Error.\n");
+					exit(1);
+			}
+			(expr->leftOperand->v).val.fvalue = res;
+		}
+		return expr->leftOperand;
+	} else
+		return expr;
+}
+
 Expression *parseTerm( FILE *source, Expression *lvalue) {
 	if(lvalue == NULL) {
 		Expression *value = parseValue(source);
@@ -250,6 +310,7 @@ Expression *parseTerm( FILE *source, Expression *lvalue) {
 			(term->v).val.op = Mul;
 			term->leftOperand = lvalue;
 			term->rightOperand = parseValue(source);
+			//term = ConstFolding(term);
 			return parseTerm(source, term);
 		case DivOp:
 			term = (Expression *)malloc( sizeof(Expression) );
@@ -257,6 +318,7 @@ Expression *parseTerm( FILE *source, Expression *lvalue) {
 			(term->v).val.op = Div;
 			term->leftOperand = lvalue;
 			term->rightOperand = parseValue(source);
+			//term = ConstFolding(term);
 			return parseTerm(source, term);
 		case PlusOp:
 		case MinusOp:
@@ -287,6 +349,7 @@ Expression *parseExpression( FILE *source, Expression *lvalue )
             (expr->v).val.op = Plus;
             expr->leftOperand = lvalue;
             expr->rightOperand = parseTerm(source, NULL);
+			//expr = ConstFolding(expr);
             return parseExpression(source, expr);
         case MinusOp:
             expr = (Expression *)malloc( sizeof(Expression) );
@@ -294,6 +357,7 @@ Expression *parseExpression( FILE *source, Expression *lvalue )
             (expr->v).val.op = Minus;
             expr->leftOperand = lvalue;
             expr->rightOperand = parseTerm(source, NULL);
+			//expr = ConstFolding(expr);
             return parseExpression(source, expr);
         case Alphabet:
         case PrintOp:
